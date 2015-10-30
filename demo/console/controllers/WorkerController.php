@@ -9,9 +9,7 @@ class WorkerController extends Task
     public function actionRun()
   	{
   		while (true) {
-  			$msg = date("Y-m-d H:i:s")."\n";
-  			$this->log($msg);
-  			$this->sleep(10);
+  			$this->sleep(1);
   		}
   	}
 }

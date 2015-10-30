@@ -83,6 +83,7 @@ class ManagerController extends Task
                 usleep(500);
                 $num = System::getProcessNum($task);
             } while ($num>0);
+            $this->sendSign($task, '');
             echo $msg = "ok\n";
             $this->log($msg,'');
         }

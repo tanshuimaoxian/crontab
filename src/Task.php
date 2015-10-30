@@ -28,6 +28,7 @@ class Task extends \yii\console\Controller
             } while ($num>0);
             echo "ok\n";
         }
+        $this->sendSign($task, '');
     }
 
     public function actionRestart()
@@ -59,7 +60,6 @@ class Task extends \yii\console\Controller
         $task = $this->taskName.'/run';
         $sign = $this->fetchSign($task);
         if ($sign == 'stop') {
-            $this->sendSign($task, '');
             exit();
         }
         //隔天自动重启
