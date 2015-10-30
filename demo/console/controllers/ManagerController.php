@@ -5,6 +5,7 @@ use \tanshuimaoxian\crontab\System;
 
 class ManagerController extends Task
 {
+    protected $taskName = "manager";
     protected $tasks = array();
     public function actionRun()
     {
@@ -14,53 +15,83 @@ class ManagerController extends Task
         }
 
         $this->tasks = \Yii::$app->params['tasks'];
-        try {
-            $this->stop();
-            while(true) {
-                $this->check();
-                sleep(60);
-            }
-        } catch(Exception $e) {
-            $msg = $e->getMessage() . "\n";
-            $this->log($msg);
+        if (empty($this->tasks)){
             exit();
-        }    
+        }
+        while(true) {
+            try {
+                $this->check();
+                sleep(1);
+            } catch(Exception $e) {
+                $this->log($e->getMessage());
+            }  
+        }  
+    }
+
+    public function actionRestart()
+    {
+        //关闭进程
+        $this->actionStop();
+        //启动进程
+        $task = $this->taskName . '/run';
+        while ($this->try < $this->tryLimit) {
+            $this->try++;
+            $status = System::startByRoot(CRONTAB_ROOT.'/yii', $task, 1);
+            if ($status) {
+                echo $msg = "start {$task}",PHP_EOL;
+                $this->log($msg);
+                break;
+            }
+        }
     }
 
     public function actionStop()
     {
-        $this->tasks = \Yii::$app->params['tasks'];
-        try {
-            $this->stop();
-        } catch(Exception $e) {
-            $msg = $e->getMessage() . "\n";
-            $this->log($msg);
-            exit();
-        }  
-    }
-
-    protected function stop() 
-    {
-        if (empty($this->tasks)){
-            return true;
+        //关闭MANAGER进程
+        $task = $this->taskName . '/run';
+        $num = System::getProcessNum($task);
+        if ($num > 0) {
+          while (true) {
+              if (System::stop($task)) {
+                   echo $msg = "stop {$task}",PHP_EOL;
+                   $this->log($msg);
+                  break;
+              }
+              sleep(5);
+          }
         }
+
+        //关闭WORKER进程
+        $this->tasks = \Yii::$app->params['tasks'];
+        if (empty($this->tasks)){
+           exit();
+        }
+        
         foreach ($this->tasks as $item) {
             $task = $item[0];
-            if (!System::exists($task)) {
+            $num = System::getProcessNum($task);
+            if ($num < 1) {
                 continue;
             }
-            $this->log("stop {$task}");
-            if (!System::stop($task)) {
-                throw new Exception("stop {$task} error");
-            } 
+            echo $msg = "stop {$task} ...";
+            $this->log($msg,'');
+            $this->sendSign($task, 'stop');
+            //等待进程关闭
+            do {
+                echo $msg = ".";
+                $this->log($msg,'');
+                usleep(500);
+                $num = System::getProcessNum($task);
+            } while ($num>0);
+            echo $msg = "ok\n";
+            $this->log($msg,'');
         }
+        echo $msg = "done",PHP_EOL;
+        $this->log($msg);
     }
 
     protected function check() 
     {
-        if (empty($this->tasks)){
-            return true;
-        }
         foreach ($this->tasks as $key => $item) {
             $task = $item[0];
             $num = $item[1];

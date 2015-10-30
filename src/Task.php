@@ -3,9 +3,10 @@
 namespace tanshuimaoxian\crontab;
 class Task extends \yii\console\Controller
 {
-	protected $try = 0;
-	protected $tryLimit = 10;
-	protected $date;
+    protected $try = 0;
+    protected $tryLimit = 10;
+    protected $date;
+    protected $taskName = "task";
     public function actionRun()
     {
         echo 'run' . PHP_EOL;
@@ -13,38 +14,68 @@ class Task extends \yii\console\Controller
 
     public function actionStop()
     {
-    	$cls = get_called_class();
-    	$parts = explode('\\', strtolower($cls));
-    	$taskName = substr(array_pop($parts),0,-10);
-		$task = $taskName.'/run';
-		$num = System::getProcessNum($task);
-		if ($num > 0) {
-			$this->log("stop {$task}");
-			System::stop($task);
-		}
+        $task = $this->taskName.'/run';
+        $num = System::getProcessNum($task);
+        if ($num > 0) {
+            echo "stop {$task} ...";
+            // System::stop($task);
+            $this->sendSign($task);
+            //等待进程关闭
+            do {
+                echo ".";
+                sleep(1);
+                $num = System::getProcessNum($task);
+            } while ($num>0);
+            echo "ok\n";
+        }
     }
 
     public function actionRestart()
     {
-    	$this->actionStop();
-        $this->actionRun();
+        $task = $this->taskName.'/run';
+        $num = System::getProcessNum($task);
+
+        //关闭进程
+        $this->actionStop();
+        //启动进程
+        echo "start {$task}\n";
+        if ($num<1) $num = 1;
+        System::start(CRONTAB_ROOT.'/yii', $task, $num, '/dev/null', '');
+    }
+
+    public function sendSign($task, $sign='stop')
+    {
+        \Yii::$app->redis->hset('CRONTAB|SIGN', $task, $sign);
+    }
+
+    public function fetchSign($task)
+    {
+        return \Yii::$app->redis->hget('CRONTAB|SIGN', $task);
     }
 
     protected function sleep($cd)
     {
-    	if (empty($this->date)) $this->date = date('Ymd');
-    	if ($this->date != date('Ymd')) {
-    		exit();
-    	} 
-    	sleep($cd);
+        //接收关闭进程信号
+        $task = $this->taskName.'/run';
+        $sign = $this->fetchSign($task);
+        if ($sign == 'stop') {
+            $this->sendSign($task, '');
+            exit();
+        }
+        //隔天自动重启
+        if (empty($this->date)) $this->date = date('Ymd');
+        if ($this->date != date('Ymd')) {
+            exit();
+        }
+        sleep($cd);
     }
 
-    protected function log($msg) 
+    protected function log($msg, $tail = "\n") 
     {
-    	$time = date('Y-m-d H:i:s');
-    	$day = date('Ymd');
-    	$log = CRONTAB_LOG . get_called_class() . $day.'.log';
-    	$msg = sprintf("[%s] %s", $time, $msg);
-    	file_put_contents($log, $msg . PHP_EOL, FILE_APPEND);
+        $time = date('Y-m-d H:i:s');
+        $day = date('Ymd');
+        $log = CRONTAB_LOG . get_called_class() . $day.'.log';
+        if (!empty($tail)) $msg = sprintf("[%s] %s", $time, $msg.$tail);
+        file_put_contents($log, $msg, FILE_APPEND);
     }
 }

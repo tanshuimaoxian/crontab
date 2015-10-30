@@ -5,8 +5,10 @@ use \tanshuimaoxian\crontab\System;
 
 class MainController extends Task
 {
+  protected $taskName = "main";
   public function actionRun()
   {
+      echo "start run..\n";
       $task = 'manager/run';
       $num = System::getProcessNum($task);
       if ($num > 0) {
@@ -16,30 +18,48 @@ class MainController extends Task
         $this->try++;
         $status = System::startByRoot(CRONTAB_ROOT.'/yii', $task, 1);
         if ($status) {
-            $this->log("start {$task}");
+            echo "start {$task}\n";
             break;
         }
       }
+      echo "run..\n";
   }
 
   public function actionStop()
   {
-      $task = 'manager/run';
-      $num = System::getProcessNum($task);
-      if ($num > 0) {
-          while (true) {
-              if (System::stop($task)) {
-                   $this->log("stop {$task}");
-                  break;
-              }
-              sleep(5);
-          }
-      }
+      echo "start stop..\n";
       $task = 'manager/stop';
       $num = System::getProcessNum($task);
       if ($num > 0) {
-          return true;
+         return true;
       }
-      System::startByRoot(CRONTAB_ROOT.'/yii', $task, 1);
+      while ($this->try < $this->tryLimit) {
+        $this->try++;
+        $status = System::startByRoot(CRONTAB_ROOT.'/yii', $task, 1);
+        if ($status) {
+            echo "start {$task}\n";
+            break;
+        }
+      }
+      echo "stopped..\n";
+  }
+
+  public function actionRestart()
+  {
+      echo "start restart..\n";
+      $task = 'manager/restart';
+      $num = System::getProcessNum($task);
+      if ($num > 0) {
+         return true;
+      }
+      while ($this->try < $this->tryLimit) {
+        $this->try++;
+        $status = System::startByRoot(CRONTAB_ROOT.'/yii', $task, 1);
+        if ($status) {
+            echo "restart {$task}\n";
+            break;
+        }
+      }
+      echo "restarted..\n";
   }
 }
