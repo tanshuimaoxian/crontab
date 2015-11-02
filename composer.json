@@ -9,8 +9,7 @@
         }
     ],
     "require": {
-        "yiisoft/yii2-redis": "*",
-        "wayhood/yii2-queue": "*"
+        "yiisoft/yii2-redis": "*"
         },
     "autoload": {
         "psr-4": {

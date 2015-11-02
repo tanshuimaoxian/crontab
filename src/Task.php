@@ -54,7 +54,7 @@ class Task extends \yii\console\Controller
         return \Yii::$app->redis->hget('CRONTAB|SIGN', $task);
     }
 
-    protected function sleep($cd)
+    protected function checkSign()
     {
         //接收关闭进程信号
         $task = $this->taskName.'/run';
@@ -67,14 +67,16 @@ class Task extends \yii\console\Controller
         if ($this->date != date('Ymd')) {
             exit();
         }
-        sleep($cd);
     }
 
     protected function log($msg, $tail = "\n") 
     {
         $time = date('Y-m-d H:i:s');
         $day = date('Ymd');
-        $log = CRONTAB_LOG . get_called_class() . $day.'.log';
+        $log = CRONTAB_LOG . str_replace('\\','_',get_called_class()) . $day.'.log';
+        if (is_array($msg)) {
+            $msg = json_encode($msg);
+        }
         if (!empty($tail)) $msg = sprintf("[%s] %s", $time, $msg.$tail);
         file_put_contents($log, $msg, FILE_APPEND);
     }
